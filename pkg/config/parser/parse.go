@@ -2,7 +2,6 @@ package parser
 
 import (
 	"errors"
-	"fmt"
 	"github.com/IljaN/opencloud-sftp/pkg/config"
 	"github.com/IljaN/opencloud-sftp/pkg/config/defaults"
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
@@ -21,7 +20,7 @@ func ParseConfig(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(globConf)
+
 	err = occfg.BindSourcesToStructs(cfg.Service.Name, globConf)
 	if err != nil {
 		return err
