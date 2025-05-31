@@ -1,204 +1,72 @@
 package vfs
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	"github.com/pkg/sftp"
-	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
-	"io"
 
-	iofs "io/fs"
 	"os"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 )
 
-func OpenCloudHandler(authCtx context.Context, sel *pool.Selector[gateway.GatewayAPIClient], logger zerolog.Logger) sftp.Handlers {
-	root := &root{
-		authCtx:    authCtx,
-		gwSelector: sel,
-		log:        logger,
-	}
-
-	root.log.Debug().Msg("Initializing sftp vfs")
-	return sftp.Handlers{root, root, root, root}
-}
-
-// In memory file-system-y thing that the Hanlders live on
-type root struct {
-	mu         sync.Mutex
-	authCtx    context.Context
-	gwSelector *pool.Selector[gateway.GatewayAPIClient]
-	log        zerolog.Logger
-}
-
-func (fs *root) Fileread(r *sftp.Request) (io.ReaderAt, error) {
-	flags := r.Pflags()
-	if !flags.Read {
-		// sanity check
-		return nil, os.ErrInvalid
-	}
-
-	return fs.OpenFile(r)
-}
-
-func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
-	flags := r.Pflags()
-	if !flags.Write {
-		// sanity check
-		return nil, os.ErrInvalid
-	}
-
-	return fs.OpenFile(r)
-}
-
-func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
-	_ = r.WithContext(r.Context()) // initialize context for deadlock testing
-
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
-	fs.log.Debug().
-		Str("path", r.Filepath).
-		Uint32("flags", r.Flags).
-		Msg("OpenFile called")
-
+func (fs *root) mkdir(dirPath string) error {
 	storageSpaces, err := fs.listStorageSpaces()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	spc, relPath, err := fs.findSpaceForPath(r.Filepath, storageSpaces)
+	spc, relPath, err := fs.findSpaceForPath(dirPath, storageSpaces)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if spc == nil {
-		return nil, os.ErrNotExist
+		return os.ErrNotExist
 	}
 
 	ref, err := makeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
 	if err != nil {
-		fs.log.Debug().Err(err).Msg("makeStorageSpaceReference error in OpenFile")
-		return nil, err
+		fs.log.Debug().Err(err).Msg("makeStorageSpaceReference error in Mkdir")
+		return err
 	}
 
-	// Create file if it doesn't exist and flags indicate creation
-	flags := r.Pflags()
-	if flags.Write && (flags.Creat || flags.Trunc) {
-		client, err := fs.gwSelector.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		// Touch the file to ensure it exists
-		_, err = client.TouchFile(fs.authCtx, &storageProvider.TouchFileRequest{
-			Ref: &storageProvider.Reference{ResourceId: ref.GetResourceId(), Path: relPath},
-		})
-		if err != nil {
-			fs.log.Debug().Err(err).Msg("TouchFile error in OpenFile")
-			// Ignore error - file might already exist
-		}
+	client, err := fs.gwSelector.Next()
+	if err != nil {
+		return err
 	}
 
-	// Return the file handler that implements WriterAt and ReaderAt
-	return newSftpFileHandler(fs, &ref, r.Filepath, r.Flags), nil
-}
+	mkCntRes, err := client.CreateContainer(fs.authCtx, &storageProvider.CreateContainerRequest{
+		Ref: &storageProvider.Reference{ResourceId: ref.GetResourceId(), Path: relPath},
+	})
 
-func (fs *root) Filecmd(r *sftp.Request) error {
-	_ = r.WithContext(r.Context()) // initialize context for deadlock testing
-
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
-	switch r.Method {
-	case "Setstat":
-		return errors.New("setstat not supported")
-	case "Rename":
-		// SFTP-v2: "It is an error if there already exists a file with the name specified by newpath."
-		// This varies from the POSIX specification, which allows limited replacement of target files.
-		return fs.rename(r.Filepath, r.Target, false)
-	case "Rmdir":
-		return fs.rmdir(r.Filepath)
-	case "Remove":
-		// IEEE 1003.1 remove explicitly can unlink files and remove empty directories.
-		// We use instead here the semantics of unlink, which is allowed to be restricted against directories.
-		return fs.remove(r.Filepath)
-	case "Mkdir":
-		storageSpaces, err := fs.listStorageSpaces()
-		if err != nil {
-			return err
-		}
-
-		spc, relPath, err := fs.findSpaceForPath(r.Filepath, storageSpaces)
-		if err != nil {
-			return err
-		}
-
-		if spc == nil {
-			return os.ErrNotExist
-		}
-
-		ref, err := makeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
-		if err != nil {
-			fs.log.Debug().Err(err).Msg("makeStorageSpaceReference error in Mkdir")
-			return err
-		}
-
-		client, err := fs.gwSelector.Next()
-		if err != nil {
-			return err
-		}
-
-		mkCntRes, err := client.CreateContainer(fs.authCtx, &storageProvider.CreateContainerRequest{
-			Ref: &storageProvider.Reference{ResourceId: ref.GetResourceId(), Path: relPath},
-		})
-
-		if err != nil {
-			return err
-		}
-
-		respCode := mkCntRes.GetStatus().GetCode()
-
-		if respCode != rpc.Code_CODE_OK {
-			if respCode == rpc.Code_CODE_ALREADY_EXISTS {
-				return fmt.Errorf("failed to create container: %w", os.ErrExist)
-			}
-
-			err = fmt.Errorf("failed to create container: %s", mkCntRes.GetStatus().GetMessage())
-			fs.log.Debug().
-				Err(err).
-				Str("path", relPath).
-				Str("code", respCode.String()).
-				Msgf("Could not create container: %s", err)
-
-			return err
-		}
-
-		return nil
-
-	case "Link":
-		return errors.New("hard links are not supported")
-	case "Symlink":
-		// NOTE: r.Filepath is the target, and r.Target is the linkpath.
-		return errors.New("symbolic links are not supported")
+	if err != nil {
+		return err
 	}
 
-	return errors.New("unsupported")
-}
+	respCode := mkCntRes.GetStatus().GetCode()
 
-func (fs *root) rename(oldpath, newpath string, allowOverwrite bool) error {
-	return fs.renameFile(oldpath, newpath, allowOverwrite)
+	if respCode != rpc.Code_CODE_OK {
+		if respCode == rpc.Code_CODE_ALREADY_EXISTS {
+			return fmt.Errorf("failed to create container: %w", os.ErrExist)
+		}
+
+		err = fmt.Errorf("failed to create container: %s", mkCntRes.GetStatus().GetMessage())
+		fs.log.Debug().
+			Err(err).
+			Str("path", relPath).
+			Str("code", respCode.String()).
+			Msgf("Could not create container: %s", err)
+
+		return err
+	}
+
+	return nil
 }
 
 func (fs *root) renameFile(oldpath, newpath string, allowOverwrite bool) error {
@@ -294,20 +162,6 @@ func (fs *root) renameFile(oldpath, newpath string, allowOverwrite bool) error {
 	}
 
 	return nil
-}
-
-func (fs *root) PosixRename(r *sftp.Request) error {
-	_ = r.WithContext(r.Context()) // initialize context for deadlock testing
-
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
-	// POSIX rename allows overwriting existing files
-	return fs.rename(r.Filepath, r.Target, true)
-}
-
-func (fs *root) StatVFS(r *sftp.Request) (*sftp.StatVFS, error) {
-	return nil, errors.New("StatVFS not supported")
 }
 
 func (fs *root) remove(pathname string) error {
@@ -468,52 +322,102 @@ func (fs *root) rmdir(pathname string) error {
 	return nil
 }
 
-type listerat []os.FileInfo
+func (fs *root) list(dirPath string) ([]os.FileInfo, error) {
 
-// Modeled after strings.Reader's ReadAt() implementation
-func (f listerat) ListAt(ls []os.FileInfo, offset int64) (int, error) {
-	var n int
-	if offset >= int64(len(f)) {
-		return 0, io.EOF
+	storageSpaces, err := fs.listStorageSpaces()
+	if err != nil {
+		return nil, err
 	}
-	n = copy(ls, f[offset:])
-	if n < len(ls) {
-		return n, io.EOF
+
+	if dirPath == "/" {
+		finfos := storageSpacesToFileInfo(storageSpaces)
+		return finfos, nil
 	}
-	return n, nil
+
+	spc, relPath, err := fs.findSpaceForPath(dirPath, storageSpaces)
+	if err != nil {
+		return nil, err
+	}
+
+	if spc == nil {
+		return nil, os.ErrNotExist
+	}
+
+	ref, err := makeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
+	if err != nil {
+		fs.log.Debug().Err(err).Msg("makeStorageSpaceReference error")
+		return nil, err
+	}
+	fs.log.Debug().
+		Str("spaceId", spc.Id.GetOpaqueId()).
+		Str("path", relPath).
+		Msg("Created ref with space ID")
+
+	client, err := fs.gwSelector.Next()
+	if err != nil {
+		return nil, err
+	}
+
+	fs.log.Debug().Msg("Calling 'ListContainer'")
+	listResp, err := client.ListContainer(fs.authCtx, &storageProvider.ListContainerRequest{
+		Ref: &ref,
+	})
+
+	if err != nil {
+		fs.log.Debug().Err(err).Msg("ListContainer error")
+		return nil, err
+	}
+
+	if listResp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+		fs.log.Debug().
+			Str("code", listResp.GetStatus().GetCode().String()).
+			Str("message", listResp.GetStatus().GetMessage()).
+			Msg("ListContainer status not OK")
+		return nil, fmt.Errorf("list container failed: %s", listResp.GetStatus().GetMessage())
+	}
+
+	infos := listResp.GetInfos()
+	fs.log.Debug().Int("itemCount", len(infos)).Msg("ListContainer returned items")
+	fileInfos := toFileInfos(infos...)
+	return fileInfos, nil
+
 }
 
-type fileInfo struct {
-	name  string
-	size  int64
-	mode  iofs.FileMode
-	mtime time.Time
-	isDir bool
-	sys   any
-}
+func (fs *root) stat(path string) (os.FileInfo, error) {
+	storageSpaces, err := fs.listStorageSpaces()
+	if err != nil {
+		return nil, err
+	}
 
-func (f fileInfo) Name() string {
-	return f.name
-}
+	spc, relPath, err := fs.findSpaceForPath(path, storageSpaces)
+	if err != nil {
+		return nil, err
+	}
 
-func (f fileInfo) Size() int64 {
-	return f.size
-}
+	if spc == nil {
+		return nil, os.ErrNotExist
+	}
 
-func (f fileInfo) Mode() iofs.FileMode {
-	return f.mode
-}
+	client, err := fs.gwSelector.Next()
+	if err != nil {
+		return nil, err
+	}
 
-func (f fileInfo) ModTime() time.Time {
-	return f.mtime
-}
+	ref, err := makeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
+	if err != nil {
+		return nil, err
+	}
 
-func (f fileInfo) IsDir() bool {
-	return f.isDir
-}
+	statResp, err := client.Stat(fs.authCtx, &storageProvider.StatRequest{
+		Ref: &ref,
+	})
 
-func (f fileInfo) Sys() any {
-	return f.sys
+	if err != nil {
+		return nil, err
+	}
+
+	fi := toFileInfos(statResp.GetInfo())
+	return fi[0], nil
 }
 
 func (fs *root) listStorageSpaces() ([]*storageProvider.StorageSpace, error) {
@@ -580,111 +484,6 @@ func (fs *root) findSpaceForPath(path string, spaces []*storageProvider.StorageS
 
 	fs.log.Debug().Msgf("Space '%s' not found", spaceName)
 	return nil, "", nil
-
-}
-
-func (fs *root) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
-	_ = r.WithContext(r.Context()) // initialize context for deadlock testing
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
-	fs.log.Debug().
-		Str("method", r.Method).
-		Str("file-path", r.Filepath).
-		Msg("Filelist called")
-
-	storageSpaces, err := fs.listStorageSpaces()
-	if err != nil {
-		return nil, err
-	}
-
-	switch r.Method {
-	case "List":
-		if r.Filepath == "/" {
-			finfos := storageSpacesToFileInfo(storageSpaces)
-			return listerat(finfos), nil
-		}
-
-		spc, relPath, err := fs.findSpaceForPath(r.Filepath, storageSpaces)
-		if err != nil {
-			return nil, err
-		}
-
-		if spc == nil {
-			return nil, os.ErrNotExist
-		}
-
-		ref, err := makeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
-		if err != nil {
-			fs.log.Debug().Err(err).Msg("makeStorageSpaceReference error")
-			return nil, err
-		}
-		fs.log.Debug().
-			Str("spaceId", spc.Id.GetOpaqueId()).
-			Str("path", relPath).
-			Msg("Created ref with space ID")
-
-		client, err := fs.gwSelector.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		fs.log.Debug().Msg("Calling 'ListContainer'")
-		listResp, err := client.ListContainer(fs.authCtx, &storageProvider.ListContainerRequest{
-			Ref: &ref,
-		})
-
-		if err != nil {
-			fs.log.Debug().Err(err).Msg("ListContainer error")
-			return nil, err
-		}
-
-		if listResp.GetStatus().GetCode() != rpc.Code_CODE_OK {
-			fs.log.Debug().
-				Str("code", listResp.GetStatus().GetCode().String()).
-				Str("message", listResp.GetStatus().GetMessage()).
-				Msg("ListContainer status not OK")
-			return nil, fmt.Errorf("list container failed: %s", listResp.GetStatus().GetMessage())
-		}
-
-		infos := listResp.GetInfos()
-		fs.log.Debug().Int("itemCount", len(infos)).Msg("ListContainer returned items")
-		fileInfos := toFileInfos(infos...)
-		return listerat(fileInfos), nil
-	case "Stat":
-		spc, relPath, err := fs.findSpaceForPath(r.Filepath, storageSpaces)
-		if err != nil {
-			return nil, err
-		}
-
-		if spc == nil {
-			return nil, os.ErrNotExist
-		}
-
-		client, err := fs.gwSelector.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		ref, err := makeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
-		if err != nil {
-			return nil, err
-		}
-
-		statResp, err := client.Stat(fs.authCtx, &storageProvider.StatRequest{
-			Ref: &ref,
-		})
-
-		if err != nil {
-			return nil, err
-		}
-
-		fi := toFileInfos(statResp.GetInfo())
-		return listerat{fi[0]}, nil
-
-	}
-
-	return nil, errors.New("unsupported")
 }
 
 func toFileInfos(rInfos ...*storageProvider.ResourceInfo) []os.FileInfo {
