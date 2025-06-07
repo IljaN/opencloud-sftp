@@ -1,9 +1,11 @@
 package spacelookup
 
 import (
+	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"strings"
 )
 
@@ -37,6 +39,26 @@ func FindSpaceForPath(path string, spaces []*storageProvider.StorageSpace) (spac
 	return nil, "", nil
 }
 
+func FilterForPersonalSpace(uid *userpb.UserId) *storageProvider.ListStorageSpacesRequest {
+	return &storageProvider.ListStorageSpacesRequest{
+		FieldMask: &fieldmaskpb.FieldMask{Paths: []string{"*"}},
+		Filters: []*storageProvider.ListStorageSpacesRequest_Filter{
+			{
+				Type: storageProvider.ListStorageSpacesRequest_Filter_TYPE_SPACE_TYPE,
+				Term: &storageProvider.ListStorageSpacesRequest_Filter_SpaceType{
+					SpaceType: "personal",
+				},
+			},
+			{
+				Type: storageProvider.ListStorageSpacesRequest_Filter_TYPE_OWNER,
+				Term: &storageProvider.ListStorageSpacesRequest_Filter_Owner{
+					Owner: uid,
+				},
+			},
+		},
+	}
+}
+
 // SplitAbsolutePath splits an absolute path into the first part which should be a space name, and a second part which is the rest of the path
 // relative to that space.
 func SplitAbsolutePath(path string) (string, string) {
@@ -58,6 +80,10 @@ func SplitAbsolutePath(path string) (string, string) {
 
 	if rest == "" {
 		rest = "/"
+	}
+
+	if rest != "/" {
+		rest = strings.TrimSuffix(rest, "/")
 	}
 
 	return first, rest
