@@ -3,6 +3,7 @@ package vfs
 import (
 	"context"
 	"errors"
+	"github.com/IljaN/opencloud-sftp/pkg/vfs/spacelookup"
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -70,7 +71,7 @@ func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
 		return nil, err
 	}
 
-	spc, relPath, err := fs.findSpaceForPath(r.Filepath, storageSpaces)
+	spc, relPath, err := spacelookup.FindSpaceForPath(r.Filepath, storageSpaces)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +80,7 @@ func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
 		return nil, os.ErrNotExist
 	}
 
-	ref, err := makeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
+	ref, err := spacelookup.MakeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
 	if err != nil {
 		fs.log.Debug().Err(err).Msg("makeStorageSpaceReference error in OpenFile")
 		return nil, err

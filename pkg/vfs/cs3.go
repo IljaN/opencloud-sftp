@@ -3,14 +3,12 @@ package vfs
 import (
 	"errors"
 	"fmt"
+	"github.com/IljaN/opencloud-sftp/pkg/vfs/spacelookup"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	"os"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -21,7 +19,7 @@ func (fs *root) mkdir(dirPath string) error {
 		return err
 	}
 
-	spc, relPath, err := fs.findSpaceForPath(dirPath, storageSpaces)
+	spc, relPath, err := spacelookup.FindSpaceForPath(dirPath, storageSpaces)
 	if err != nil {
 		return err
 	}
@@ -30,7 +28,7 @@ func (fs *root) mkdir(dirPath string) error {
 		return os.ErrNotExist
 	}
 
-	ref, err := makeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
+	ref, err := spacelookup.MakeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
 	if err != nil {
 		fs.log.Debug().Err(err).Msg("makeStorageSpaceReference error in Mkdir")
 		return err
@@ -77,7 +75,7 @@ func (fs *root) renameFile(oldpath, newpath string, allowOverwrite bool) error {
 	}
 
 	// Find space and relative path for source
-	sourceSpc, sourceRelPath, err := fs.findSpaceForPath(oldpath, storageSpaces)
+	sourceSpc, sourceRelPath, err := spacelookup.FindSpaceForPath(oldpath, storageSpaces)
 	if err != nil {
 		return err
 	}
@@ -86,7 +84,7 @@ func (fs *root) renameFile(oldpath, newpath string, allowOverwrite bool) error {
 	}
 
 	// Find space and relative path for target
-	targetSpc, targetRelPath, err := fs.findSpaceForPath(newpath, storageSpaces)
+	targetSpc, targetRelPath, err := spacelookup.FindSpaceForPath(newpath, storageSpaces)
 	if err != nil {
 		return err
 	}
@@ -101,14 +99,14 @@ func (fs *root) renameFile(oldpath, newpath string, allowOverwrite bool) error {
 	}
 
 	// Create source reference
-	sourceRef, err := makeStorageSpaceReference(sourceSpc.Id.GetOpaqueId(), sourceRelPath)
+	sourceRef, err := spacelookup.MakeStorageSpaceReference(sourceSpc.Id.GetOpaqueId(), sourceRelPath)
 	if err != nil {
 		fs.log.Debug().Err(err).Msg("makeStorageSpaceReference error for source in rename")
 		return err
 	}
 
 	// Create target reference
-	targetRef, err := makeStorageSpaceReference(targetSpc.Id.GetOpaqueId(), targetRelPath)
+	targetRef, err := spacelookup.MakeStorageSpaceReference(targetSpc.Id.GetOpaqueId(), targetRelPath)
 	if err != nil {
 		fs.log.Debug().Err(err).Msg("makeStorageSpaceReference error for target in rename")
 		return err
@@ -170,7 +168,7 @@ func (fs *root) remove(pathname string) error {
 		return err
 	}
 
-	spc, relPath, err := fs.findSpaceForPath(pathname, storageSpaces)
+	spc, relPath, err := spacelookup.FindSpaceForPath(pathname, storageSpaces)
 	if err != nil {
 		return err
 	}
@@ -180,7 +178,7 @@ func (fs *root) remove(pathname string) error {
 	}
 
 	// First stat the file to check if it's a directory
-	ref, err := makeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
+	ref, err := spacelookup.MakeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
 	if err != nil {
 		fs.log.Debug().Err(err).Msg("makeStorageSpaceReference error in remove")
 		return err
@@ -242,7 +240,7 @@ func (fs *root) rmdir(pathname string) error {
 		return err
 	}
 
-	spc, relPath, err := fs.findSpaceForPath(pathname, storageSpaces)
+	spc, relPath, err := spacelookup.FindSpaceForPath(pathname, storageSpaces)
 	if err != nil {
 		return err
 	}
@@ -251,7 +249,7 @@ func (fs *root) rmdir(pathname string) error {
 		return os.ErrNotExist
 	}
 
-	ref, err := makeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
+	ref, err := spacelookup.MakeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
 	if err != nil {
 		fs.log.Debug().Err(err).Msg("makeStorageSpaceReference error in rmdir")
 		return err
@@ -334,7 +332,7 @@ func (fs *root) list(dirPath string) ([]os.FileInfo, error) {
 		return finfos, nil
 	}
 
-	spc, relPath, err := fs.findSpaceForPath(dirPath, storageSpaces)
+	spc, relPath, err := spacelookup.FindSpaceForPath(dirPath, storageSpaces)
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +341,7 @@ func (fs *root) list(dirPath string) ([]os.FileInfo, error) {
 		return nil, os.ErrNotExist
 	}
 
-	ref, err := makeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
+	ref, err := spacelookup.MakeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
 	if err != nil {
 		fs.log.Debug().Err(err).Msg("makeStorageSpaceReference error")
 		return nil, err
@@ -389,7 +387,7 @@ func (fs *root) stat(path string) (os.FileInfo, error) {
 		return nil, err
 	}
 
-	spc, relPath, err := fs.findSpaceForPath(path, storageSpaces)
+	spc, relPath, err := spacelookup.FindSpaceForPath(path, storageSpaces)
 	if err != nil {
 		return nil, err
 	}
@@ -403,7 +401,7 @@ func (fs *root) stat(path string) (os.FileInfo, error) {
 		return nil, err
 	}
 
-	ref, err := makeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
+	ref, err := spacelookup.MakeStorageSpaceReference(spc.Id.GetOpaqueId(), relPath)
 	if err != nil {
 		return nil, err
 	}
@@ -439,51 +437,6 @@ func (fs *root) listStorageSpaces() ([]*storageProvider.StorageSpace, error) {
 	}
 
 	return lSSRes.GetStorageSpaces(), nil
-}
-
-func splitPath(path string) (string, string) {
-	// Remove leading slash, if any
-	trimmed := strings.TrimPrefix(path, "/")
-
-	// Split into two parts
-	parts := strings.SplitN(trimmed, "/", 2)
-
-	if len(parts) == 0 || parts[0] == "" {
-		return "", ""
-	}
-
-	first := parts[0]
-	var rest string
-	if len(parts) == 2 {
-		rest = "/" + parts[1]
-	}
-
-	if rest == "" {
-		rest = "/"
-	}
-
-	return first, rest
-}
-
-func (fs *root) findSpaceForPath(path string, spaces []*storageProvider.StorageSpace) (space *storageProvider.StorageSpace, relPath string, err error) {
-	spaceName, relPath := splitPath(path)
-
-	fs.log.Debug().
-		Str("path", path).
-		Str("spaceName", spaceName).
-		Str("relPath", relPath).
-		Msg("Resolving path to space and rel-path")
-
-	for k := range spaces {
-		if spaces[k].GetName() == spaceName {
-			space = spaces[k]
-			fs.log.Debug().Msgf("Found storage space %s", spaceName)
-			return
-		}
-	}
-
-	fs.log.Debug().Msgf("Space '%s' not found", spaceName)
-	return nil, "", nil
 }
 
 func toFileInfos(rInfos ...*storageProvider.ResourceInfo) []os.FileInfo {
@@ -533,20 +486,4 @@ func storageSpacesToFileInfo(spaces []*storageProvider.StorageSpace) []os.FileIn
 	}
 
 	return files
-}
-
-// makeStorageSpaceReference find a space by id and returns a relative reference
-func makeStorageSpaceReference(spaceID string, relativePath string) (storageProvider.Reference, error) {
-	resourceID, err := storagespace.ParseID(spaceID)
-	if err != nil {
-		return storageProvider.Reference{}, err
-	}
-	// be tolerant about missing sharesstorageprovider id
-	if resourceID.StorageId == "" && resourceID.SpaceId == utils.ShareStorageSpaceID {
-		resourceID.StorageId = utils.ShareStorageProviderID
-	}
-	return storageProvider.Reference{
-		ResourceId: &resourceID,
-		Path:       utils.MakeRelativePath(relativePath),
-	}, nil
 }
