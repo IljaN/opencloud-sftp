@@ -598,6 +598,25 @@ func (c *Client) ClearPersonalSpace() error {
 	return nil
 }
 
+// CreateHome creates a new home for the authenticated user
+func (c *Client) CreateHome() error {
+	gw, err := c.gwSelector.Next()
+	if err != nil {
+		return fmt.Errorf("failed to get gateway client: %w", err)
+	}
+
+	res, err := gw.CreateHome(c.ctx, &provider.CreateHomeRequest{})
+	if err != nil {
+		return fmt.Errorf("failed to create home: %w", err)
+	}
+
+	if res.Status.Code != rpc.Code_CODE_OK {
+		return fmt.Errorf("create home failed with status: %s", res.Status.Message)
+	}
+
+	return nil
+}
+
 // GetUser returns the authenticated user
 func (c *Client) GetUser() *userpb.User {
 	return c.user

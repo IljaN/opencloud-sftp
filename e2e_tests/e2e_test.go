@@ -47,13 +47,39 @@ func TestMain(m *testing.M) {
 type TestSuite struct {
 	cfg               *Config
 	sftpClientFactory *ClientFactory
+	testUsers         *userStates
 }
 
+func TestE2E(t *testing.T) {
+	ts := &TestSuite{
+		cfg:               &testConfig,
+		sftpClientFactory: NewClientFactory(testConfig.SFTPClient, testConfig.GatewayClient),
+		testUsers:         &userStates{},
+	}
+
+	// Register the test methods dynamically
+	methods := getTypedMethods(ts, "Test")
+	for _, method := range methods {
+		t.Run(method.Name, method.Func)
+	}
+}
+
+// GetGateway creates a new gateway client for the specified user ID to be used during a test case.
 func (ts *TestSuite) GetGateway(uid string) *gateway.Client {
 	client, err := gateway.NewClient(&ts.cfg.GatewayClient, uid)
 	if err != nil {
 		log.Fatalf("Failed to create gateway client: %v", err)
 	}
+
+	// Ensure the user has a home directory created, which is normally only done after the first login.
+	if !ts.testUsers.hasHome(uid) {
+		err = client.CreateHome()
+		if err != nil {
+			log.Fatalf("Failed to create home for user %s: %v", uid, err)
+		}
+		ts.testUsers.setHomeCreated(uid)
+	}
+
 	return client
 }
 
@@ -75,20 +101,6 @@ func (ts *TestSuite) GetSFTPClient(uid string) (*sftp.Client, func()) {
 	}
 
 	return sc, cleanup
-}
-
-func TestE2E(t *testing.T) {
-	ts := &TestSuite{
-		cfg:               &testConfig,
-		sftpClientFactory: NewClientFactory(testConfig.SFTPClient, testConfig.GatewayClient),
-	}
-
-	// Register the test methods dynamically
-	methods := getTypedMethods(ts, "Test")
-	for _, method := range methods {
-		t.Run(method.Name, method.Func)
-	}
-
 }
 
 type MethodEntry struct {
@@ -123,4 +135,24 @@ func getTypedMethods(instance *TestSuite, prefix string) []MethodEntry {
 	})
 
 	return methods
+}
+
+type userStates map[string]struct {
+	HomeCreated bool
+}
+
+func (us *userStates) setHomeCreated(uid string) {
+	if _, exists := (*us)[uid]; !exists {
+		(*us)[uid] = struct {
+			HomeCreated bool
+		}{}
+	}
+	(*us)[uid] = struct {
+		HomeCreated bool
+	}{HomeCreated: true}
+}
+
+func (us *userStates) hasHome(uid string) bool {
+	_, exists := (*us)[uid]
+	return exists && (*us)[uid].HomeCreated
 }
