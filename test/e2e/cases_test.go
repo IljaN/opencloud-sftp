@@ -1,9 +1,9 @@
 //go:build e2e
 
-package e2e_tests
+package e2e
 
 import (
-	"github.com/IljaN/opencloud-sftp/e2e_tests/assert"
+	"github.com/IljaN/opencloud-sftp/test/e2e/assert"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"io"
 	"testing"

@@ -1,10 +1,10 @@
 //go:build e2e
 
-package e2e_tests
+package e2e
 
 import (
-	"github.com/IljaN/opencloud-sftp/e2e_tests/gateway"
-	"github.com/IljaN/opencloud-sftp/e2e_tests/sftp"
+	"github.com/IljaN/opencloud-sftp/test/e2e/gateway"
+	"github.com/IljaN/opencloud-sftp/test/e2e/sftp"
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
 	"log"

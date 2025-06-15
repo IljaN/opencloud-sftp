@@ -1,13 +1,19 @@
 //go:build e2e
 
-package e2e_tests
+package e2e
 
 import (
-	"github.com/IljaN/opencloud-sftp/e2e_tests/gateway"
-	"github.com/IljaN/opencloud-sftp/e2e_tests/sftp"
+	"github.com/IljaN/opencloud-sftp/test/e2e/gateway"
+	"github.com/IljaN/opencloud-sftp/test/e2e/sftp"
 	extSftp "github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
+
+type ClientFactory struct {
+	keyCache  map[string]sftp.KeyPair
+	gwConfig  gateway.Config
+	sftConfig sftp.Config
+}
 
 func NewClientFactory(sftpCfg sftp.Config, gwCfg gateway.Config) *ClientFactory {
 	return &ClientFactory{
@@ -15,12 +21,6 @@ func NewClientFactory(sftpCfg sftp.Config, gwCfg gateway.Config) *ClientFactory 
 		sftConfig: sftpCfg,
 		gwConfig:  gwCfg,
 	}
-}
-
-type ClientFactory struct {
-	keyCache  map[string]sftp.KeyPair
-	gwConfig  gateway.Config
-	sftConfig sftp.Config
 }
 
 func (c *ClientFactory) NewClient(uid string) (*sftp.Client, error) {

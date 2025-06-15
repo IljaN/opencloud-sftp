@@ -1,37 +1,35 @@
 #!/bin/bash
 # This script starts opencloud and opencloud-sftp in the background inside a Docker container to then run end-to-end tests.
-set -e  # Exit on any error
+# It should be executed from the root of the project inside the Docker container.
 
-# Function to handle cleanup on exit
+set -e
+
+
 cleanup() {
     echo "Cleaning up background processes..."
     # Kill background processes if they're still running
     if [[ -n $PID1 ]] && kill -0 $PID1 2>/dev/null; then
-        echo "Stopping process 1 (PID: $PID1)"
+        echo "Stopping opencloud (PID: $PID1)"
         kill $PID1
     fi
     if [[ -n $PID2 ]] && kill -0 $PID2 2>/dev/null; then
-        echo "Stopping process 2 (PID: $PID2)"
+        echo "Stopping opencloud-sftp (PID: $PID2)"
         kill $PID2
     fi
-    if [[ -n $PID3 ]] && kill -0 $PID3 2>/dev/null; then
-            echo "Stopping process 3 (PID: $PID3)"
-            kill $PID3
-        fi
     exit 0
 }
 
 # Set up signal handlers for cleanup
 trap cleanup SIGTERM SIGINT
 
-echo "Starting opencloud..."
-OC_MACHINE_AUTH_API_KEY='3RIWu=LE5kNUqDHM0xH*Dxe=U9sczrwY' /usr/local/bin/opencloud server &
+echo "Starting opencloud server..."
+/usr/local/bin/opencloud server &
 PID1=$!
 echo "opencloud started with PID: $PID1"
 sleep 5
 
-echo "Starting opencloud-sftp..."
-OC_MACHINE_AUTH_API_KEY='3RIWu=LE5kNUqDHM0xH*Dxe=U9sczrwY' /usr/local/bin/opencloud-sftp server &
+echo "Starting opencloud-sftp server..."
+/usr/local/bin/opencloud-sftp server &
 PID2=$!
 echo "opencloud-sftp started with PID: $PID2"
 sleep 5
