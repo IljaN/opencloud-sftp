@@ -13,7 +13,6 @@ import (
 
 	iofs "io/fs"
 	"os"
-	"sync"
 	"time"
 )
 
@@ -29,7 +28,6 @@ func OpenCloudHandler(authCtx context.Context, sel *pool.Selector[gateway.Gatewa
 }
 
 type root struct {
-	mu         sync.Mutex
 	authCtx    context.Context
 	gwSelector *pool.Selector[gateway.GatewayAPIClient]
 	log        zerolog.Logger
@@ -56,11 +54,6 @@ func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 }
 
 func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
-	_ = r.WithContext(r.Context()) // initialize context for deadlock testing
-
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
 	fs.log.Debug().
 		Str("path", r.Filepath).
 		Uint32("flags", r.Flags).
@@ -109,11 +102,6 @@ func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
 }
 
 func (fs *root) Filecmd(r *sftp.Request) error {
-	_ = r.WithContext(r.Context()) // initialize context for deadlock testing
-
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
 	switch r.Method {
 	case "Setstat":
 		return errors.New("setstat not supported")
@@ -144,11 +132,6 @@ func (fs *root) rename(oldpath, newpath string, allowOverwrite bool) error {
 }
 
 func (fs *root) PosixRename(r *sftp.Request) error {
-	_ = r.WithContext(r.Context()) // initialize context for deadlock testing
-
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
 	// POSIX rename allows overwriting existing files
 	return fs.rename(r.Filepath, r.Target, true)
 }
@@ -206,10 +189,6 @@ func (f fileInfo) Sys() any {
 }
 
 func (fs *root) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
-	_ = r.WithContext(r.Context()) // initialize context for deadlock testing
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
 	fs.log.Debug().
 		Str("method", r.Method).
 		Str("file-path", r.Filepath).
