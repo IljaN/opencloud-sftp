@@ -23,7 +23,7 @@ You should now be able to connect via SFTP using your OpenCloud username
 ## Setup
 
 ### Prerequisites
-OpenCloud 2.3.0 with all services running on the same machine (simple setup, scale-out not considered yet) 
+OpenCloud 3.0.0 with all services running on the same machine (simple setup, scale-out not considered yet) 
 
 ### Build opencloud-sftp
 ```shell

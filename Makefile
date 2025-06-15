@@ -1,5 +1,5 @@
 GO_FILES := $(shell find . -type f -name '*.go')
-OC_BINARY_DL_URL := 'https://github.com/opencloud-eu/opencloud/releases/download/v2.3.0/opencloud-2.3.0-linux-amd64'
+OC_BINARY_DL_URL := 'https://github.com/opencloud-eu/opencloud/releases/download/v3.0.0/opencloud-3.0.0-linux-amd64'
 E2E_TESTS_DOCKER_IMAGE := oc-sftp-e2e
 
 opencloud-sftp: $(GO_FILES)
