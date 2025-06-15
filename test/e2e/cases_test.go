@@ -233,3 +233,27 @@ func (ts *TestSuite) TestRenameFile_Simple(t *testing.T) {
 		t.Fatalf("Expected renamed file size %d, got %d", len(content), res.GetSize())
 	}
 }
+
+func (ts *TestSuite) TestRenameEmptyFolder(t *testing.T) {
+	oldPath := "/Admin/OldFolder"
+	newPath := "/Admin/NewFolder"
+
+	gw := ts.GetGateway("admin")
+	err := gw.CreateFolder(oldPath)
+	if err != nil {
+		t.Fatalf("Failed to create folder for rename: %v", err)
+	}
+
+	sftp, cleanup := ts.GetSFTPClient("admin")
+	defer cleanup()
+
+	err = sftp.Rename(oldPath, newPath)
+	if err != nil {
+		t.Fatalf("Failed to rename folder: %v", err)
+	}
+
+	res, err := gw.Stat(newPath)
+	if err != nil || res.Type != storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER {
+		t.Fatalf("Failed to stat renamed folder: %v", err)
+	}
+}
