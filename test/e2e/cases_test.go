@@ -232,6 +232,11 @@ func (ts *TestSuite) TestRenameFile_Simple(t *testing.T) {
 	if res.GetSize() != uint64(len(content)) {
 		t.Fatalf("Expected renamed file size %d, got %d", len(content), res.GetSize())
 	}
+
+	_, err = gw.Stat(oldPath)
+	if err == nil {
+		t.Fatalf("Old file %s still exists after rename", err)
+	}
 }
 
 func (ts *TestSuite) TestRenameEmptyFolder(t *testing.T) {
@@ -255,5 +260,10 @@ func (ts *TestSuite) TestRenameEmptyFolder(t *testing.T) {
 	res, err := gw.Stat(newPath)
 	if err != nil || res.Type != storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER {
 		t.Fatalf("Failed to stat renamed folder: %v", err)
+	}
+
+	_, err = gw.Stat(oldPath)
+	if err == nil {
+		t.Fatalf("Old folder %s still exists after rename", err)
 	}
 }
