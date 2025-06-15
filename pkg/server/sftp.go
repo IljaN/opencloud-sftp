@@ -31,7 +31,7 @@ type SFTPServer struct {
 func NewSFTPServer(cfg *sftpSvrCfg.Config, logger log.Logger) *SFTPServer {
 	s := &SFTPServer{
 		Server: &ssh.Server{
-			Addr: "127.0.0.1:2222",
+			Addr: cfg.SFTPAddress,
 		},
 		cfg: cfg,
 		log: logger,
