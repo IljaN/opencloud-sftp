@@ -1,6 +1,4 @@
-//go:build e2e
-
-package sftp
+package keygen
 
 import (
 	"crypto/ed25519"

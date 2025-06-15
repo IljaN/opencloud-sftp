@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"github.com/IljaN/opencloud-sftp/pkg/keygen"
 	"github.com/IljaN/opencloud-sftp/test/e2e/gateway"
 	"github.com/IljaN/opencloud-sftp/test/e2e/sftp"
 	extSftp "github.com/pkg/sftp"
@@ -10,27 +11,27 @@ import (
 )
 
 type ClientFactory struct {
-	keyCache  map[string]sftp.KeyPair
+	keyCache  map[string]keygen.KeyPair
 	gwConfig  gateway.Config
 	sftConfig sftp.Config
 }
 
 func NewClientFactory(sftpCfg sftp.Config, gwCfg gateway.Config) *ClientFactory {
 	return &ClientFactory{
-		keyCache:  make(map[string]sftp.KeyPair),
+		keyCache:  make(map[string]keygen.KeyPair),
 		sftConfig: sftpCfg,
 		gwConfig:  gwCfg,
 	}
 }
 
 func (c *ClientFactory) NewClient(uid string) (*sftp.Client, error) {
-	var keyPair *sftp.KeyPair
+	var keyPair *keygen.KeyPair
 	var err error
 
 	if kp, exists := c.keyCache[uid]; exists {
 		keyPair = &kp
 	} else {
-		keyPair, err = sftp.GenerateSSHKeyPair()
+		keyPair, err = keygen.GenerateSSHKeyPair()
 		if err != nil {
 			return nil, err
 		}
@@ -75,7 +76,7 @@ func (c *ClientFactory) NewClient(uid string) (*sftp.Client, error) {
 
 }
 
-func authMethodFromKeyPair(kp *sftp.KeyPair) ssh.AuthMethod {
+func authMethodFromKeyPair(kp *keygen.KeyPair) ssh.AuthMethod {
 	signer, err := ssh.ParsePrivateKey(kp.PrivateKey)
 	if err != nil {
 		panic(err)

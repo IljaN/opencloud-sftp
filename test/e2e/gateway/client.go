@@ -8,8 +8,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/IljaN/opencloud-sftp/pkg/config"
+	"github.com/IljaN/opencloud-sftp/pkg/keygen"
 	"github.com/IljaN/opencloud-sftp/pkg/vfs/spacelookup"
-	"github.com/IljaN/opencloud-sftp/test/e2e/sftp"
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
@@ -511,7 +511,7 @@ func (c *Client) Stat(absolutePath string) (*provider.ResourceInfo, error) {
 
 }
 
-func (c *Client) DeployPublicKey(kp *sftp.KeyPair) error {
+func (c *Client) DeployPublicKey(kp *keygen.KeyPair) error {
 	gw, err := c.gwSelector.Next()
 	if err != nil {
 		return fmt.Errorf("failed to get gateway client: %w", err)
