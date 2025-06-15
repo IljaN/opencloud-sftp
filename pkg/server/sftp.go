@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	sftpSvrCfg "github.com/IljaN/opencloud-sftp/pkg/config"
 	"github.com/IljaN/opencloud-sftp/pkg/server/auth"
 	"github.com/IljaN/opencloud-sftp/pkg/vfs"
@@ -73,9 +72,9 @@ func (s *SFTPServer) SFTPHandler(sess ssh.Session) {
 
 	if err := server.Serve(); err == io.EOF {
 		server.Close()
-		fmt.Println("sftp client exited session.")
+		s.log.Debug().Str("uid", sess.User()).Msg("sftp client exited session.")
 	} else if err != nil {
-		fmt.Println("sftp server completed with error:", err)
+		s.log.Debug().Str("uid", sess.User()).Err(err).Msg("sftp server completed with error")
 	}
 }
 
