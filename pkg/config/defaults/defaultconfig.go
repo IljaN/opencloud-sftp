@@ -23,9 +23,10 @@ func DefaultConfig() *config.Config {
 		Service: config.Service{
 			Name: "sftp",
 		},
-		Reva:              shared.DefaultRevaConfig(),
-		MachineAuthAPIKey: "",
-		ServerCertPath:    path.Join(defaults.BaseDataPath(), "sftp", "xyz"),
+		SFTPAddress:        "127.0.1:2222",
+		HostPrivateKeyPath: path.Join(defaults.BaseDataPath(), "sftp", "id_rsa"),
+		Reva:               shared.DefaultRevaConfig(),
+		MachineAuthAPIKey:  "",
 		Status: config.Status{
 			Version:        version.Legacy,
 			VersionString:  version.LegacyString,

@@ -5,28 +5,26 @@ import (
 	"github.com/IljaN/opencloud-sftp/pkg/config"
 	"github.com/IljaN/opencloud-sftp/pkg/config/defaults"
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
-	ocparse "github.com/opencloud-eu/opencloud/pkg/config/parser"
-
-	"github.com/opencloud-eu/opencloud/pkg/shared"
-
 	"github.com/opencloud-eu/opencloud/pkg/config/envdecode"
+	ocparse "github.com/opencloud-eu/opencloud/pkg/config/parser"
+	"github.com/opencloud-eu/opencloud/pkg/shared"
 )
 
 // ParseConfig loads configuration from known paths.
 func ParseConfig(cfg *config.Config) error {
 	globConf := occfg.DefaultConfig()
 	err := ocparse.ParseConfig(globConf, true)
+	if err != nil {
+		return err
+	}
 	cfg.Commons = globConf.Commons
-	if err != nil {
-		return err
-	}
-
-	err = occfg.BindSourcesToStructs(cfg.Service.Name, globConf)
-	if err != nil {
-		return err
-	}
 
 	defaults.EnsureDefaults(cfg)
+
+	err = occfg.BindSourcesToStructs(cfg.Service.Name, cfg)
+	if err != nil {
+		return err
+	}
 
 	// load all env variables relevant to the config in the current context.
 	if err := envdecode.Decode(cfg); err != nil {

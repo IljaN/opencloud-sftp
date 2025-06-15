@@ -31,7 +31,7 @@ func (c *ClientFactory) NewClient(uid string) (*sftp.Client, error) {
 	if kp, exists := c.keyCache[uid]; exists {
 		keyPair = &kp
 	} else {
-		keyPair, err = keygen.GenerateSSHKeyPair()
+		keyPair, err = keygen.GenerateSSHKeyPair(keygen.KeyTypeEd25519)
 		if err != nil {
 			return nil, err
 		}

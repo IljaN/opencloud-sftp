@@ -13,6 +13,9 @@ type Config struct {
 	Log     *Log            `yaml:"log"`
 	Debug   Debug           `yaml:"debug"`
 
+	SFTPAddress        string `yaml:"sftp_address" env:"OCSFTP_ADDRESS" desc:"The address to bind the SFTP server to. Format: 'host:port'. If not set, the server will not start." introductionVersion:"1.0.0"`
+	HostPrivateKeyPath string `yaml:"host_private_key_path" env:"OCSFTP_HOST_PRIVATE_KEY_PATH" desc:"Path to the hosts private-key" introductionVersion:"1.0.0"`
+
 	TokenManager *TokenManager `yaml:"token_manager"`
 	Reva         *shared.Reva  `yaml:"reva"`
 
@@ -29,7 +32,6 @@ type Config struct {
 	Status  Status          `yaml:"-"`
 
 	AllowPropfindDepthInfinity bool `yaml:"allow_propfind_depth_infinity" env:"OCSFTP_ALLOW_PROPFIND_DEPTH_INFINITY" desc:"Allow the use of depth infinity in PROPFINDS. When enabled, a propfind will traverse through all subfolders. If many subfolders are expected, depth infinity can cause heavy server load and/or delayed response times." introductionVersion:"1.0.0"`
-	ServerCertPath             string
 	GatewaySelector            string
 }
 

@@ -12,6 +12,7 @@ import (
 func GetCommands(cfg *config.Config) cli.Commands {
 	return []*cli.Command{
 		Server(cfg),
+		Init(cfg),
 		Health(cfg),
 		Version(cfg),
 	}

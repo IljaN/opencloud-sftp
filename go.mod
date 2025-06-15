@@ -6,6 +6,7 @@ require (
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/cs3org/go-cs3apis v0.0.0-20241105092511-3ad35d174fc1
 	github.com/gliderlabs/ssh v0.3.8
+	github.com/goccy/go-yaml v1.18.0
 	github.com/joho/godotenv v1.5.1
 	github.com/oklog/run v1.1.0
 	github.com/olekukonko/tablewriter v1.0.7
@@ -61,7 +62,6 @@ require (
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.2.1 // indirect
-	github.com/goccy/go-yaml v1.11.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
@@ -132,7 +132,6 @@ require (
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/tools v0.31.0 // indirect
-	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250218202821-56aae31c358a // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250219182151-9fdb1cabc7b2 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect

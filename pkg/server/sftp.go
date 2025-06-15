@@ -82,7 +82,7 @@ func (s *SFTPServer) SFTPHandler(sess ssh.Session) {
 }
 
 func (s *SFTPServer) ListenAndServe() error {
-	key, err := readPrivateKeyFromFile(s.cfg.ServerCertPath)
+	key, err := readPrivateKeyFromFile(s.cfg.HostPrivateKeyPath)
 	if err != nil {
 		return err
 	}

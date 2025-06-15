@@ -25,11 +25,8 @@ chmod +x /usr/local/bin/opencloud /usr/local/bin/opencloud-sftp || error_exit "F
 log "Initializing opencloud with admin privileges..."
 opencloud init -ap admin -f --insecure "yes" || error_exit "opencloud initialization failed."
 
-log "Creating SFTP configuration directory at ~/.opencloud/sftp..."
-mkdir -p ~/.opencloud/sftp || error_exit "Failed to create SFTP config directory."
-
-log "Generating a new RSA SSH key pair for the opencloud-sftp server at ~/.opencloud/sftp/xyz..."
-ssh-keygen -t rsa -b 4096 -f ~/.opencloud/sftp/xyz -N "" || error_exit "SSH key generation failed."
+log "Initializing opencloud-sftp config"
+opencloud-sftp init -f --sftp-addr 127.0.0.1:2222 || error_exit "opencloud-sftp initialization failed."
 
 log "Installing Go module dependencies..."
 go get || error_exit "Failed to install Go dependencies."
