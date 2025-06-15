@@ -28,8 +28,5 @@ opencloud init -ap admin -f --insecure "yes" || error_exit "opencloud initializa
 log "Initializing opencloud-sftp config"
 opencloud-sftp init -f --sftp-addr 127.0.0.1:2222 || error_exit "opencloud-sftp initialization failed."
 
-log "Installing Go module dependencies..."
-go get || error_exit "Failed to install Go dependencies."
-
 log "Building Go binaries with 'e2e' build tag..."
 go build -tags=e2e ./... || error_exit "Go build failed."
