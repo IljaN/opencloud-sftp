@@ -69,21 +69,7 @@ func Init(cfg *config.Config) *cli.Command {
 
 			err := deleteFiles(serviceDataPath, serviceConfigPath)
 
-			// Create service data directory if it does not exist
-			if err := os.MkdirAll(serviceDataPath, 0755); err != nil {
-				return fmt.Errorf("failed to create service data directory %s: %v", serviceDataPath, err)
-			}
-
-			keyPair, err := keygen.GenerateSSHKeyPair(keygen.KeyTypeRSA)
-			if err != nil {
-				return fmt.Errorf("failed to generate SSH key pair: %v", err)
-			}
-
-			err = writeKeyPairToFile(keyPair, serviceDataPath, "id_rsa")
-			if err != nil {
-				return fmt.Errorf("failed to write key pair to file: %v", err)
-			}
-
+			fmt.Printf("Genrating config %s\n", serviceConfigPath)
 			rawYML, err := configSubsetToYAML(cfg, []string{"SFTPAddress", "HostPrivateKeyPath"})
 			if err != nil {
 				return fmt.Errorf("failed to generate YAML configuration: %v", err)
@@ -94,8 +80,27 @@ func Init(cfg *config.Config) *cli.Command {
 				return fmt.Errorf("failed to write configuration to %s: %v", serviceConfigPath, err)
 			}
 
-			return nil
+			fmt.Printf("Creating service data directory: %s\n", serviceDataPath)
+			// Create service data directory if it does not exist
+			if err := os.MkdirAll(serviceDataPath, 0755); err != nil {
+				return fmt.Errorf("failed to create service data directory %s: %v", serviceDataPath, err)
+			}
 
+			fmt.Printf("Generating SSH Host-Key pair in %s\n", serviceDataPath)
+			keyPair, err := keygen.GenerateSSHKeyPair(keygen.KeyTypeRSA)
+			if err != nil {
+				return fmt.Errorf("failed to generate SSH key pair: %v", err)
+			}
+
+			fmt.Printf("...%s\n", path.Join(serviceDataPath, "id_rsa"))
+			fmt.Printf("...%s\n", path.Join(serviceDataPath, "id_rsa.pub"))
+
+			err = writeKeyPairToFile(keyPair, serviceDataPath, "id_rsa")
+			if err != nil {
+				return fmt.Errorf("failed to write key pair to file: %v", err)
+			}
+
+			return nil
 		},
 	}
 }
