@@ -205,3 +205,31 @@ func (ts *TestSuite) TestDownloadFile(t *testing.T) {
 		t.Fatalf("Downloaded content does not match original content. Expected: %s, got: %s", string(content), string(downloaded))
 	}
 }
+
+func (ts *TestSuite) TestRenameFile_Simple(t *testing.T) {
+	oldPath := "/Admin/OldFile.txt"
+	newPath := "/Admin/NewFile.txt"
+	content := []byte("This is a file to be renamed.")
+
+	gw := ts.GetGateway("admin")
+	err := gw.CreateFile(oldPath, content)
+	if err != nil {
+		t.Fatalf("Failed to create file for rename: %v", err)
+	}
+
+	sftp, cleanup := ts.GetSFTPClient("admin")
+	defer cleanup()
+
+	err = sftp.Rename(oldPath, newPath)
+	if err != nil {
+		t.Fatalf("Failed to rename file: %v", err)
+	}
+	res, err := gw.Stat(newPath)
+	if err != nil || res.Type != storageProvider.ResourceType_RESOURCE_TYPE_FILE {
+		t.Fatalf("Failed to stat renamed file: %v", err)
+	}
+
+	if res.GetSize() != uint64(len(content)) {
+		t.Fatalf("Expected renamed file size %d, got %d", len(content), res.GetSize())
+	}
+}
