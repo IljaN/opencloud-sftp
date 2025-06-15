@@ -46,8 +46,6 @@ func NewSFTPServer(cfg *sftpSvrCfg.Config, logger log.Logger) *SFTPServer {
 
 // SFTPHandler handler for SFTP subsystem
 func (s *SFTPServer) SFTPHandler(sess ssh.Session) {
-	s.gwSelector.Next()
-
 	uid, ok := sess.Context().Value("uid").(*userpb.UserId)
 	if !ok {
 		s.log.Error().Msg("Failed to get uid from ctx")
