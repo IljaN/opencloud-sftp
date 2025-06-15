@@ -5,18 +5,21 @@ A [OpenCloud](https://github.com/opencloud-eu/) service which enables users to a
 
 > ⚠️ WARNING: This is currently in a proof of concept stage. Don't use it in production!
 
+--
+
 ## User Flow
 Log-In to OpenCloud using the Web UI and create a folder named ".ssh" in your home directory. Upload one or more of your public SSH keys to this folder. The names of the key files should end with ".pub". 
 <img src="https://github.com/IljaN/opencloud-sftp/raw/main/.github/images/ssh-folder.png" width="850" height="250">
 
-> ℹ️ **Note:** The ".ssh" folder is hidden by default, so you may need to enable "show hidden files" in the web view.
-____
+> ℹ️ The ".ssh" folder is hidden by default, so you may need to enable "show hidden files" in the web view.
 
-Now you should be able to connect to the SFTP server with any SFTP client:
+> ℹ️ Storing keys in the ".ssh" folder is a temporary solution. In future versions it shall be possible to add keys via user settings.
 
+---
+
+### Connecting
+You should now be able to connect via SFTP using your OpenCloud username
 ![Connecting via SFTP and doing some file-ops (ls, cd, get, rm)](.github/images/sftp-client.gif)
-
-> ℹ️ **Note:** Storing keys in the ".ssh" folder is a temporary solution. In future versions it shall be possible to add keys via user settings.
 
 ## Setup
 
